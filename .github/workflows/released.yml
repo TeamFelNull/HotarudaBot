@@ -8,6 +8,9 @@ on:
         required: true
         default: 'vNotFound'
 
+permissions:
+  contents: write
+
 jobs:
   release:
     name: Release
