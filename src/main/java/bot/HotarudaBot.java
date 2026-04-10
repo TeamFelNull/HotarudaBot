@@ -79,7 +79,7 @@ public class HotarudaBot {
 //======================================================================================================================
 
 
-        SchedulerService scheduler = new SchedulerService(jda, config, store);
+        SchedulerService scheduler = new SchedulerService(jda, config, store, voiceAudioScheduler);
         scheduler.start();
 
         System.out.println("Bot起動した!");

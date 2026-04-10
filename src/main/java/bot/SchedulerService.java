@@ -3,9 +3,8 @@ package bot;
 import bot.voice.VoiceAudioScheduler;
 import net.dv8tion.jda.api.JDA;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
+import java.time.*;
+import java.util.EnumSet;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -14,13 +13,16 @@ public class SchedulerService {
     private final JDA jda;
     private final BotConfig config;
     private final ConfigStore store;
+    private final VoiceAudioScheduler voiceAudioScheduler;
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
-    private VoiceAudioScheduler voiceAudioScheduler = HotarudaBot.voiceAudioScheduler;
 
-    public SchedulerService(JDA jda, BotConfig config, ConfigStore store) {
+    private LocalDate lastDailyResetDate;
+
+    public SchedulerService(JDA jda, BotConfig config, ConfigStore store, VoiceAudioScheduler voiceAudioScheduler) {
         this.jda = jda;
         this.config = config;
         this.store = store;
+        this.voiceAudioScheduler = voiceAudioScheduler;
     }
 
     public void start() {
@@ -29,24 +31,43 @@ public class SchedulerService {
 
     private void tick() {
         try {
-            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Tokyo"));
             LocalDate today = now.toLocalDate();
             LocalTime target = config.getEffectiveTime();
+            DayOfWeek dayOfWeek = today.getDayOfWeek();
+
+            resetDailyFlagsIfNeeded(now, today);
+
+            boolean isFridayOrSaturday =
+                    (dayOfWeek == DayOfWeek.FRIDAY || dayOfWeek == DayOfWeek.SATURDAY) && config.getTodayOverride() == null;
+
+            boolean alreadyPlayedToday =
+                    config.getLastPlayedDate() != null && config.getLastPlayedDate().equals(today);
+
+            boolean isTargetTime =
+                    now.getHour() == target.getHour() && now.getMinute() == target.getMinute();
 
             if (!config.isSkipToday()
-                    && (config.getLastPlayedDate() == null || !config.getLastPlayedDate().equals(today))) {
+                    && !isFridayOrSaturday
+                    && !alreadyPlayedToday
+                    && isTargetTime) {
 
-                if (now.getHour() == target.getHour() && now.getMinute() == target.getMinute()) {
-                    var guild = jda.getGuildById(config.getGuildId());
-                    if (guild != null && (voiceAudioScheduler.audioPlayer.getPlayingTrack() == null)) {
-                        voiceAudioScheduler.play();
-                        config.setLastPlayedDate(today);
-                        store.save(config);
-                    }
+                var guild = jda.getGuildById(config.getGuildId());
+                if (guild != null && voiceAudioScheduler.audioPlayer.getPlayingTrack() == null) {
+                    voiceAudioScheduler.play();
+                    config.setLastPlayedDate(today);
+                    store.save(config);
                 }
             }
 
-            if (now.getHour() == 0 && now.getMinute() == 0) {
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void resetDailyFlagsIfNeeded(LocalDateTime now, LocalDate today) {
+        if (now.getHour() == 0 && now.getMinute() == 0) {
+            if (!today.equals(lastDailyResetDate)) {
                 boolean changed = false;
 
                 if (config.getTodayOverride() != null) {
@@ -62,9 +83,9 @@ public class SchedulerService {
                 if (changed) {
                     store.save(config);
                 }
+
+                lastDailyResetDate = today;
             }
-        } catch (Exception e) {
-            e.printStackTrace();
         }
     }
 }

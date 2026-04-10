@@ -41,6 +41,7 @@ public class CommandListener extends ListenerAdapter {
                     LocalTime time = LocalTime.parse(timeStr);
                     config.setTodayOverride(time);
                     config.setSkipToday(false);
+                    config.setLastPlayedDate(null);
                     store.save(config);
                     event.reply("今日だけ " + time + " に変更した").queue();
                 } catch (DateTimeParseException e) {
