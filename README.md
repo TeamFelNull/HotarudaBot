@@ -5,3 +5,6 @@ DISCORD_TOKEN=
 GUILD_ID=
 VOICE_CHANNEL_ID=
 ```
+
+金曜日,土曜日は動作しないようになっています
+使いたい場合は/overrideで上書きしてください
